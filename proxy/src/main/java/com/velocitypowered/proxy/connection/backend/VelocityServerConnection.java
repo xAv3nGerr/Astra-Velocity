@@ -79,6 +79,8 @@ public class VelocityServerConnection implements MinecraftConnectionAssociation,
 
   private boolean gracefulDisconnect = false;
 
+  private boolean seamlessTransfer = false;
+
   private BackendConnectionPhase connectionPhase = BackendConnectionPhases.UNKNOWN;
 
   private final Map<Long, Long> pendingPings = new HashMap<>();
@@ -413,6 +415,15 @@ public class VelocityServerConnection implements MinecraftConnectionAssociation,
    *
    * @return Whether the join has been completed.
    */
+
+  public boolean isSeamlessTransfer() {
+    return seamlessTransfer;
+  }
+
+  public void setSeamlessTransfer(boolean seamlessTransfer) {
+    this.seamlessTransfer = seamlessTransfer;
+  }
+
   public boolean hasCompletedJoin() {
     return hasCompletedJoin;
   }
