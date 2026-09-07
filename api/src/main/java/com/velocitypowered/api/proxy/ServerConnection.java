@@ -58,4 +58,18 @@ public interface ServerConnection extends ChannelMessageSource, ChannelMessageSi
    * @return the player for this connection
    */
   Player getPlayer();
+
+  /**
+   * Returns whether this server connection was initiated using seamless transfer.
+   *
+   * @return true if the transfer is seamless
+   */
+  boolean isSeamlessTransfer();
+
+  /**
+   * Sets whether this server connection should use seamless transfer.
+   *
+   * @param seamlessTransfer true to enable seamless transfer
+   */
+  void setSeamlessTransfer(boolean seamlessTransfer);
 }
