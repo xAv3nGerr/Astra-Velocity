@@ -89,7 +89,7 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
   @Override
   public boolean beforeHandle() {
     if (!serverConn.isActive()) {
-      // Obsolete connection
+     
       serverConn.disconnect();
       return true;
     }
@@ -105,7 +105,7 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(JoinGamePacket packet) {
-    // Hold packets that follow JoinGame until it's processed, then replay in order.
+ 
     this.joinGameProcessing = true;
 
     final MinecraftConnection smc = serverConn.ensureConnected();
@@ -114,33 +114,32 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
     final VelocityServerConnection existingConnection = player.getConnectedServer();
 
     if (existingConnection != null) {
-      // Shut down the existing server connection.
+    
       player.setConnectedServer(null);
       existingConnection.disconnect();
 
-      // Send keep alive to try to avoid timeouts
+     
       player.sendKeepAlive();
     }
 
-    // Reset Tablist header and footer to prevent desync
     player.clearPlayerListHeaderAndFooter();
 
-    // Override online mode
+  
     packet.setOnlineMode(player.isOnlineMode());
 
-    // The goods are in hand! We got JoinGame. Let's transition completely to the new state.
+
     smc.setAutoReading(false);
     server.getEventManager()
         .fire(new ServerConnectedEvent(player, serverConn.getServer(), previousServer))
         .thenRunAsync(() -> {
-          // Make sure we can still transition (player might have disconnected here).
+          
           if (!serverConn.isActive()) {
-            // Connection is obsolete.
+       
             serverConn.disconnect();
             return;
           }
 
-          // Change the client to use the ClientPlaySessionHandler if required.
+        
           ClientPlaySessionHandler playHandler;
           if (player.getConnection().getActiveSessionHandler() instanceof ClientPlaySessionHandler sessionHandler) {
             playHandler = sessionHandler;
@@ -149,33 +148,31 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
             player.getConnection().setActiveSessionHandler(StateRegistry.PLAY, playHandler);
           }
 
-          playHandler.handleBackendJoinGame(packet, serverConn);
+          if (serverConn.isSeamlessTransfer()) {
+            smc.setActiveSessionHandler(StateRegistry.PLAY, new BackendPlaySessionHandler(server, serverConn));
+            serverConn.setSeamlessTransfer(false);
+          } else {
+            playHandler.handleBackendJoinGame(packet, serverConn);
+            smc.setActiveSessionHandler(StateRegistry.PLAY, new BackendPlaySessionHandler(server, serverConn));
+          }
 
-          // Set the new play session handler for the server. We will have nothing more to do
-          // with this connection once this task finishes up.
-          smc.setActiveSessionHandler(StateRegistry.PLAY, new BackendPlaySessionHandler(server, serverConn));
-
-          // The login/configuration sequence is complete: swap the short login timeout that
-          // BackendChannelInitializer installed for the regular in-play read-timeout, so a healthy
-          // but momentarily idle backend isn't dropped (issue GemstoneGG#938).
+         
           final var backendPipeline = smc.getChannel().pipeline();
           if (backendPipeline.context(Connections.READ_TIMEOUT) != null) {
             backendPipeline.replace(Connections.READ_TIMEOUT, Connections.READ_TIMEOUT,
                 new ReadTimeoutHandler(server.getConfiguration().getReadTimeout(), TimeUnit.MILLISECONDS));
           }
 
-          // Now set the connected server.
+     
           serverConn.getPlayer().setConnectedServer(serverConn);
 
-          // JoinGame processed: replay any packets held behind it before resuming reads.
+      
           flushDeferredPackets();
 
-          // Clean up disabling auto-read while the connected event was being processed.
-          // Do this after setting the connection, so no incoming packets are processed before
-          // the API knows which server the player is connected to.
+         
           smc.setAutoReading(true);
 
-          // Send client settings. In 1.20.2+ this is done in the config state.
+        
           if (smc.getProtocolVersion().lessThan(ProtocolVersion.MINECRAFT_1_20_2)
               && player.getClientSettingsPacket() != null) {
             serverConn.ensureConnected().write(player.getClientSettingsPacket());
@@ -188,11 +185,11 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
 
           if (this.server.isQueueEnabled()) {
             VelocityQueue<?> queue = this.server.getQueueManager().getQueue(serverConn.getServer()
-                    .getServerInfo().getName());
+                .getServerInfo().getName());
             queue.dequeue(player.getUniqueId());
           }
 
-          // We're done! :)
+        
           server.getEventManager().fireAndForget(new ServerPostConnectEvent(player, previousServer));
           resultFuture.complete(ConnectionRequestResults.successful(serverConn.getServer()));
         }, smc.eventLoop()).exceptionally(exc -> {
@@ -213,8 +210,7 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
     MinecraftConnection connection = serverConn.ensureConnected();
     serverConn.disconnect();
 
-    // If we were in the middle of the Forge handshake, it is not safe to proceed. We must kick
-    // the client.
+  
     if (connection.getType() == ConnectionTypes.LEGACY_FORGE && !serverConn.getPhase().consideredComplete()) {
       resultFuture.complete(ConnectionRequestResults.forUnsafeDisconnect(packet, serverConn.getServer()));
     } else {
@@ -226,7 +222,7 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(PluginMessagePacket packet) {
-    // Hold plugin messages during JoinGame processing so they reach the client after it.
+
     if (joinGameProcessing) {
       ReferenceCountUtil.retain(packet);
       deferredPackets.add(packet);
@@ -237,16 +233,15 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
       return true;
     }
 
-    // We always need to handle plugin messages, for Forge compatibility.
+   
     if (serverConn.getPhase().handle(serverConn, serverConn.getPlayer(), packet)) {
-      // Handled, but check the server connection phase.
+  
       if (serverConn.getPhase() == HELLO) {
         VelocityServerConnection existingConnection = serverConn.getPlayer().getConnectedServer();
         if (existingConnection != null && existingConnection.getPhase() != IN_TRANSITION) {
-          // Indicate that this connection is "in transition"
+      
           existingConnection.setConnectionPhase(IN_TRANSITION);
 
-          // Tell the player that we're leaving and we just aren't coming back.
           existingConnection.getPhase().onDepartForNewServer(existingConnection, serverConn.getPlayer());
         }
       }
@@ -260,7 +255,6 @@ public class TransitionSessionHandler implements MinecraftSessionHandler {
 
   @Override
   public void handleGeneric(MinecraftPacket packet) {
-    // Hold packets during JoinGame processing to replay in order; otherwise drop (the default).
     if (joinGameProcessing) {
       ReferenceCountUtil.retain(packet);
       deferredPackets.add(packet);
