@@ -304,14 +304,14 @@ public interface Player extends
    * {@link #getCurrentServer()}.
    *
    * <pre>
-   *    final ChannelIdentifier identifier;
-   *    final Player player;
-   *    player.getCurrentServer()
-   *          .map(ServerConnection::getServer)
-   *          .ifPresent((RegisteredServer server) -> {
-   *            server.sendPluginMessage(identifier, data);
-   *          });
-   *  </pre>
+   *     final ChannelIdentifier identifier;
+   *     final Player player;
+   *     player.getCurrentServer()
+   *           .map(ServerConnection::getServer)
+   *           .ifPresent((RegisteredServer server) -> {
+   *             server.sendPluginMessage(identifier, data);
+   *           });
+   *   </pre>
    *
    */
   @Override
@@ -394,10 +394,10 @@ public interface Player extends
    * {@inheritDoc}
    *
    * @apiNote <b>This method is not currently implemented in Velocity
-   *     and will not perform any actions.</b>
+   *      and will not perform any actions.</b>
    * @see #playSound(Sound, Sound.Emitter)
    * @see <a href="https://docs.papermc.io/velocity/dev/pitfalls/#audience-operations-are-not-fully-supported">
-   *     Unsupported Adventure Operations</a>
+   *      Unsupported Adventure Operations</a>
    */
   @Override
   default void playSound(@NotNull Sound sound) {
@@ -407,10 +407,10 @@ public interface Player extends
    * {@inheritDoc}
    *
    * @apiNote <b>This method is not currently implemented in Velocity
-   *     and will not perform any actions.</b>
+   *      and will not perform any actions.</b>
    * @see #playSound(Sound, Sound.Emitter)
    * @see <a href="https://docs.papermc.io/velocity/dev/pitfalls/#audience-operations-are-not-fully-supported">
-   *     Unsupported Adventure Operations</a>
+   *      Unsupported Adventure Operations</a>
    */
   @Override
   default void playSound(@NotNull Sound sound, double x, double y, double z) {
@@ -428,7 +428,7 @@ public interface Player extends
    * @since 3.4.0
    * @sinceMinecraft 1.19.3
    * @apiNote This method is currently only implemented for players on 1.19.3+ and
-   *     requires a present {@link #getCurrentServer} for the emitting player as well as this player.
+   *      requires a present {@link #getCurrentServer} for the emitting player as well as this player.
    */
   @Override
   default void playSound(@NotNull Sound sound, @NotNull Sound.Emitter emitter) {
@@ -453,7 +453,7 @@ public interface Player extends
    * and will not perform any actions.</b>
    *
    * @see <a href="https://docs.papermc.io/velocity/dev/pitfalls/#audience-operations-are-not-fully-supported">
-   *     Unsupported Adventure Operations</a>
+   *      Unsupported Adventure Operations</a>
    */
   @Override
   default void openBook(@NotNull Book book) {
@@ -466,7 +466,7 @@ public interface Player extends
    * and will not perform any actions.</b>
    *
    * @see <a href="https://docs.papermc.io/velocity/dev/pitfalls/#audience-operations-are-not-fully-supported">
-   *     Unsupported Adventure Operations</a>
+   *      Unsupported Adventure Operations</a>
    */
   @Override
   default void showDialog(@NotNull DialogLike dialog) {
@@ -479,7 +479,7 @@ public interface Player extends
    * and will not perform any actions.</b>
    *
    * @see <a href="https://docs.papermc.io/velocity/dev/pitfalls/#audience-operations-are-not-fully-supported">
-   *     Unsupported Adventure Operations</a>
+   *      Unsupported Adventure Operations</a>
    */
   @Override
   default void closeDialog() {
@@ -564,4 +564,16 @@ public interface Player extends
    * @return a future that completes once the command list has been sent
    */
   CompletableFuture<Void> sendAvailableCommands();
+
+  /**
+   * Connects the player to the target server seamlessly by setting the current
+   * connection's seamless transfer flag before initiating the connection request.
+   *
+   * @param target the server to connect to
+   * @return a {@link CompletableFuture} containing the result of the connection attempt
+   */
+  default CompletableFuture<ConnectionRequestBuilder.Result> connectSeamlessly(RegisteredServer target) {
+    getCurrentServer().ifPresent(conn -> conn.setSeamlessTransfer(true));
+    return createConnectionRequest(target).connect();
+  }
 }
